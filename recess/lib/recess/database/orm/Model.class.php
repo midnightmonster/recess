@@ -490,6 +490,22 @@ abstract class Model extends RecessObject implements ISqlConditions {
 	 */
 	function notLike($column, $rhs) { return $this->select()->notLike($column,$rhs); }
 	
+	/**
+	 * SQL IS NULL criteria
+	 *
+	 * @param string $column Column
+	 * @return PdoDataSet
+	 */
+	function isNull($column) { return $this->select()->isNull($column); }
+	
+	/**
+	 * SQL IS NOT NULL criteria
+	 *
+	 * @param string $column Column
+	 * @return PdoDataSet
+	 */
+	function isNotNull($column) { return $this->select()->isNotNull($column); }
+	
 }
 
 /**
