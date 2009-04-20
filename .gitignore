@@ -3,8 +3,7 @@
 .project
 .buildpath
 *.db
-recess/temp/compiled/*
-recess/temp/*.*
+data/temp/compiled/*
+data/temp/*.*
 .svn
 /apps/
-recess-conf*

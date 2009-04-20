@@ -1,6 +1,6 @@
 <?php
 /**
- * Recess! Framework is bootstrapped by passing control to Recess::main().
+ * Recess PHP Framework is bootstrapped by passing control to Recess::main().
  * 
  * @author Kris Jordan <krisjordan@gmail.com>
  */
@@ -19,7 +19,7 @@ set_exception_handler(array('Diagnostics','handleException'));
 Library::import('recess.http.Environment');
 Library::import('recess.Recess');
 
-// Entry point to Recess!
+// Entry point to Recess
 Recess::main(Environment::getRawRequest(), RecessConf::$policy, RecessConf::$applications, RecessConf::getRoutes(), RecessConf::$plugins);
 
 // RecessConf follows...
@@ -33,7 +33,11 @@ abstract class RecessConf {
 	
 	public static $recessDir = '';
 	
+	public static $pluginsDir = '';
+	
 	public static $appsDir = '';
+	
+	public static $dataDir = '';
 	
 	public static $useTurboSpeed = false;
 	
@@ -60,17 +64,19 @@ abstract class RecessConf {
 		
 		$_ENV['dir.recess'] = self::$recessDir;
 		$_ENV['dir.apps'] = self::$appsDir;
+		$_ENV['dir.temp'] = self::$dataDir . 'temp/';
 		$_ENV['dir.test'] = self::$recessDir . 'test/';
-		$_ENV['dir.temp'] = self::$recessDir . 'temp/';
-		$_ENV['dir.lib'] = self::$recessDir . 'lib/';
+		
 		if(!isset($_ENV['url.content'])) {
 			$_ENV['url.content'] = $_ENV['url.base'] . 'content/';
 		}
 		
 		date_default_timezone_set(self::$defaultTimeZone);
 		
-		require_once($_ENV['dir.lib'] . 'recess/lang/Library.class.php');
-		Library::addClassPath($_ENV['dir.lib']);
+		require_once($_ENV['dir.recess'] . 'recess/lang/Library.class.php');
+		Library::addClassPath(self::$appsDir);
+		Library::addClassPath(self::$pluginsDir);
+		Library::addClassPath(self::$recessDir);
 		
 		if(self::$useTurboSpeed) {
 			Library::$useNamedRuns = true;
@@ -83,8 +89,6 @@ abstract class RecessConf {
 		
 		Library::init();
 		Library::beginNamedRun('recess');
-		
-		Library::addClassPath(self::$appsDir);
 		
 		Library::import('recess.framework.Application');
 		foreach(self::$applications as $key => $app) {
@@ -100,10 +104,45 @@ abstract class RecessConf {
 		Library::import('recess.database.orm.ModelDataSource');
 		
 		if(empty(RecessConf::$defaultDatabase)) {
-			die('Congratulations, Recess is almost setup!<br /><strong>Next step</strong>: Setup <strong>recess-conf.php</strong> to point to your database. Checkout the <strong>README.textile</strong> file for detailed instructions.');
+			$message = 'Congratulations, Recess is almost setup!<br />';
+			$message .= '<strong>Next Step(s):</strong>';
+			$message .= '<ul>';
+			$pdoMessages = array();
+			if(!extension_loaded('PDO')) {
+				$pdoMessages[] = 'Install PHP\'s PDO Extension';
+				$pdoMessages[] = 'Install Sqlite or MySQL PDO Driver';
+			} else {
+				$drivers = pdo_drivers();
+				$hasMySql = in_array('mysql', $drivers);
+				$hasSqlite = in_array('sqlite', $drivers);
+				if(!$hasMySql && !$hasSqlite) {
+					$pdoMessages[] = 'Install Sqlite and/or MySQL PDO Driver';
+				} else {
+					$databases = '';
+					if($hasSqlite) { $databases = 'Sqlite'; };
+					if($hasMySql) { if($databases != '') { $databases .= ', '; } $databases .= 'MySql'; }
+					$pdoMessages[] = 'You have drivers for the following databases: ' . $databases;
+				}
+			}	
+			$pdoMessages[] = 'Setup <strong>recess-conf.php</strong> to point to your database.';
+			$pdoMessages[] = 'Checkout the <strong>README.textile</strong> file for instructions.';
+			$pdoMessages = '<li>' . implode('</li><li>', $pdoMessages) . '</li>';
+			$message .= $pdoMessages . '</ul>';
+			die($message);
 		}
-		Databases::setDefaultSource(new ModelDataSource(RecessConf::$defaultDatabase));//,RecessConf::$defaultDatabase[1],RecessConf::$defaultDatabase[2]));
 		
+		try {
+			Databases::setDefaultSource(new ModelDataSource(RecessConf::$defaultDatabase));
+		} catch(DataSourceCouldNotConnectException $e) {
+			$databaseType = parse_url(RecessConf::$defaultDatabase[0], PHP_URL_SCHEME);
+			if(!in_array($databaseType, pdo_drivers())) {
+				$message = 'It looks like PHP could not load the driver needed to connect to <strong>' . RecessConf::$defaultDatabase[0] . '</strong><br />';
+				$message .= 'Please install the <strong>' . ucfirst($databaseType) . '</strong> PDO driver and enable it in php.ini';
+			} else {
+				$message = 'Error connecting to data source: ' . $e->getMessage();
+			}
+			die($message);
+		}
 		if(!empty(RecessConf::$namedDatabases)) {
 			foreach(RecessConf::$namedDatabases as $name => $sourceInfo) {
 				Databases::addSource($name, new ModelDataSource($sourceInfo));
