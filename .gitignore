@@ -7,3 +7,4 @@ data/temp/compiled/*
 data/temp/*.*
 .svn
 /apps/
+/plugins/
